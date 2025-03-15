@@ -42,31 +42,24 @@
    
    - `CF_API_TOKEN`: Cloudflare API令牌
    - `CF_ACCOUNT_ID`: Cloudflare账户ID
+   - `CF_DOMAIN` (可选): 您的自定义域名，例如 `api.example.com`
+   - `CF_ZONE_NAME` (可选): 您的Cloudflare区域名称，例如 `example.com`
    - `POE_APIKEYS`: Poe API密钥，多个密钥用逗号分隔
    - `API_ACCESS_TOKENS`: 访问令牌，多个令牌用逗号分隔
 
-3. **自定义域名（可选）**
-   
-   在`wrangler.toml`文件中修改`routes`部分，使用您自己的域名：
-   
-   ```toml
-   [env.production]
-   routes = [
-     { pattern = "api.your-domain.com/*", zone_name = "your-domain.com" }
-   ]
-   ```
-
-4. **触发部署**
+3. **触发部署**
    
    - 推送代码到main分支，或
    - 在GitHub仓库的"Actions"标签页中手动触发工作流
 
-5. **验证部署**
+4. **验证部署**
    
-   部署完成后，可通过健康检查端点进行验证：
-   ```
-   curl https://api.your-domain.com/health
-   ```
+   部署完成后，您的API将在以下位置可用:
+   
+   - 如果设置了自定义域名: `https://您的CF_DOMAIN值/`
+   - 如果未设置自定义域名: Cloudflare默认分配的`*.workers.dev`域名
+
+   可通过健康检查端点进行验证：
 
 ## ⚙️ 配置说明
 

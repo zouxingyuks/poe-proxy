@@ -23,6 +23,46 @@ jobs:
       - name: Login to Cloudflare
         run: echo "${{ secrets.CF_API_TOKEN }}" | wrangler login
 
+      - name: Generate dynamic wrangler.toml
+        run: |
+          if [ -n "${{ secrets.CF_DOMAIN }}" ] && [ -n "${{ secrets.CF_ZONE_NAME }}" ]; then
+            # 创建包含自定义域名的产品环境配置
+            cat > wrangler.toml <<EOF
+          name = "poe-proxy"
+          compatibility_date = "2023-11-01"
+          compatibility_flags = ["nodejs_compat"]
+          workers_dev = true
+          main = "src/worker.js"
+
+          [build]
+          command = "docker build -t poe-proxy ."
+
+          [vars]
+          WORKERS_RS_VERSION = "0.0.11"
+
+          [[services]]
+          binding = "POE_SERVICE"
+          type = "table"
+          format = "postgres"
+
+          [[services.ports]]
+          port = 8080
+          external = true
+
+          [env.production]
+          routes = [
+            { pattern = "${{ secrets.CF_DOMAIN }}/*", zone_name = "${{ secrets.CF_ZONE_NAME }}" }
+          ]
+
+          [triggers]
+          crons = ["*/5 * * * *"]
+          EOF
+            echo "生成包含自定义域名的wrangler.toml"
+          else
+            echo "没有提供域名配置，使用默认的workers.dev域名"
+          fi
+          cat wrangler.toml
+
       - name: Deploy to Cloudflare Workers
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
