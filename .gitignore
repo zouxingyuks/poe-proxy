@@ -34,5 +34,8 @@ ENV/
 .env
 .env.local
 
+# Config File
+config.toml
+
 # Fly.io
 .fly/
