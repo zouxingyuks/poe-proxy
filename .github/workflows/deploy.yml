@@ -16,14 +16,78 @@ jobs:
       - name: Set up Fly.io CLI
         uses: superfly/flyctl-actions/setup-flyctl@master
 
+      - name: Generate app name from GitHub username
+        id: app-name
+        run: |
+          # 获取 GitHub 用户名并转小写
+          GITHUB_USERNAME=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          # 使用截断的用户名（最大16字符）生成应用名称
+          # 因为 Fly.io 应用名最大长度有限制
+          SHORT_USERNAME=$(echo $GITHUB_USERNAME | cut -c1-16)
+          APP_NAME="poe-proxy-${SHORT_USERNAME}"
+          # 输出应用名称
+          echo "App name: $APP_NAME"
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+
+      - name: Generate fly.toml
+        run: |
+          cat > fly.toml << 'EOL'
+          app = '${{ steps.app-name.outputs.app_name }}'
+          primary_region = 'hkg'
+
+          [build]
+
+          [http_service]
+            internal_port = 8080
+            force_https = true
+            auto_stop_machines = true
+            auto_start_machines = true
+            min_machines_running = 0
+            processes = ['app']
+
+          [[vm]]
+            memory = '512mb'
+            cpu_kind = 'shared'
+            cpus = 1
+          EOL
+          
+          cat fly.toml
+
+      - name: Check if app exists or create it
+        run: |
+          if flyctl apps list | grep -q ${{ steps.app-name.outputs.app_name }}; then
+            echo "App ${{ steps.app-name.outputs.app_name }} already exists"
+          else
+            echo "Creating new app ${{ steps.app-name.outputs.app_name }}"
+            flyctl apps create ${{ steps.app-name.outputs.app_name }}
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
       - name: Configure Fly.io Secrets
         run: |
-          flyctl secrets set POE_API_KEYS="${{ secrets.POE_API_KEYS }}" --app poe-proxy
-          flyctl secrets set ACCESS_TOKENS="${{ secrets.ACCESS_TOKENS }}" --app poe-proxy
+          # 设置 POE API 密钥
+          if [ -n "${{ secrets.POE_API_KEYS }}" ]; then
+            flyctl secrets set POE_API_KEYS="${{ secrets.POE_API_KEYS }}" --app ${{ steps.app-name.outputs.app_name }}
+          fi
+          
+          # 设置访问令牌
+          if [ -n "${{ secrets.ACCESS_TOKENS }}" ]; then
+            flyctl secrets set ACCESS_TOKENS="${{ secrets.ACCESS_TOKENS }}" --app ${{ steps.app-name.outputs.app_name }}
+          fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Deploy to Fly.io
-        run: flyctl deploy --remote-only
+        run: flyctl deploy --remote-only --app ${{ steps.app-name.outputs.app_name }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Display app URL
+        run: |
+          echo "================================================="
+          echo "✅ 部署成功！"
+          echo "🌐 应用 URL: https://${{ steps.app-name.outputs.app_name }}.fly.dev"
+          echo "================================================="
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
