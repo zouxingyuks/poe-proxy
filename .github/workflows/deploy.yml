@@ -27,7 +27,7 @@ jobs:
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CF_APIKEYS: ${{ secrets.CF_APIKEYS }}
-          CF_ACCESS_TOKENS: ${{ secrets.CF_ACCESS_TOKENS }}
+          POE_APIKEYS: ${{ secrets.POE_APIKEYS }}
+          API_ACCESS_TOKENS: ${{ secrets.API_ACCESS_TOKENS }}
         run: |
           wrangler deploy --env production

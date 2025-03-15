@@ -40,7 +40,7 @@ else:
 access_tokens = set(config.get("accessTokens", []))
 
 # 从环境变量加载额外的访问令牌
-env_tokens = os.environ.get("CF_ACCESS_TOKENS", "")
+env_tokens = os.environ.get("API_ACCESS_TOKENS", "")
 if env_tokens:
     access_tokens.update(env_tokens.split(","))
 
@@ -321,7 +321,7 @@ app.include_router(router)
 async def main():
     try:
         # 从环境变量获取配置
-        env_apikeys = os.environ.get("CF_APIKEYS", "")
+        env_apikeys = os.environ.get("POE_APIKEYS", "")
         apikeys = env_apikeys.split(",") if env_apikeys else config.get("apikey", [])
 
         await initialize_tokens(apikeys)

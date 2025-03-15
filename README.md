@@ -42,8 +42,8 @@
    
    - `CF_API_TOKEN`: Cloudflare API令牌
    - `CF_ACCOUNT_ID`: Cloudflare账户ID
-   - `CF_APIKEYS`: Poe API密钥，多个密钥用逗号分隔
-   - `CF_ACCESS_TOKENS`: 访问令牌，多个令牌用逗号分隔
+   - `POE_APIKEYS`: Poe API密钥，多个密钥用逗号分隔
+   - `API_ACCESS_TOKENS`: 访问令牌，多个令牌用逗号分隔
 
 3. **自定义域名（可选）**
    
@@ -72,8 +72,8 @@
 
 ### 环境变量
 
-- `CF_APIKEYS`: Poe API密钥列表，以逗号分隔
-- `CF_ACCESS_TOKENS`: 访问令牌列表，以逗号分隔
+- `POE_APIKEYS`: Poe API密钥列表，以逗号分隔
+- `API_ACCESS_TOKENS`: 访问令牌列表，以逗号分隔
 - `PORT`: 应用端口，默认为8080
 
 ### config.toml
