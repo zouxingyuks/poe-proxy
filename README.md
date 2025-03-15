@@ -209,7 +209,7 @@ flyctl secrets list --app your-app-name
 
 **通过 GitHub Actions 自动部署**:
 
-- 推送代码到 GitHub main 分支
+- 推送代码到 GitHub master 分支
 - 查看 GitHub Actions 运行状况
 
 **手动部署**:
