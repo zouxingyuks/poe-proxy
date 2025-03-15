@@ -69,18 +69,18 @@ jobs:
         run: |
           # 设置 POE API 密钥
           if [ -n "${{ secrets.POE_API_KEYS }}" ]; then
-            flyctl secrets set POE_API_KEYS="${{ secrets.POE_API_KEYS }}" --app ${{ steps.app-name.outputs.app_name }}
+            flyctl secrets set POE_API_KEYS="${{ secrets.POE_API_KEYS }}" -a ${{ steps.app-name.outputs.app_name }}
           fi
           
           # 设置访问令牌
           if [ -n "${{ secrets.ACCESS_TOKENS }}" ]; then
-            flyctl secrets set ACCESS_TOKENS="${{ secrets.ACCESS_TOKENS }}" --app ${{ steps.app-name.outputs.app_name }}
+            flyctl secrets set ACCESS_TOKENS="${{ secrets.ACCESS_TOKENS }}" -a ${{ steps.app-name.outputs.app_name }}
           fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Deploy to Fly.io
-        run: flyctl deploy --remote-only --app ${{ steps.app-name.outputs.app_name }}
+        run: flyctl deploy --remote-only -a ${{ steps.app-name.outputs.app_name }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -91,19 +91,15 @@ jobs:
           echo "Setting up custom domain: ${{ vars.CUSTOM_DOMAIN }}"
           
           # 检查域名是否已添加
-          if flyctl domains list --app ${{ steps.app-name.outputs.app_name }} | grep -q "${{ vars.CUSTOM_DOMAIN }}"; then
+          if flyctl certs list -a ${{ steps.app-name.outputs.app_name }} | grep -q "${{ vars.CUSTOM_DOMAIN }}"; then
             echo "Domain already registered, checking certificate status..."
           else
             # 添加自定义域名
-            flyctl domains add ${{ vars.CUSTOM_DOMAIN }} --app ${{ steps.app-name.outputs.app_name }}
+            flyctl certs create ${{ vars.CUSTOM_DOMAIN }} -a ${{ steps.app-name.outputs.app_name }}
           fi
           
           # 存储域名信息
           echo "custom_domain=${{ vars.CUSTOM_DOMAIN }}" >> $GITHUB_OUTPUT
-          
-          # 获取域名验证信息
-          DOMAIN_INFO=$(flyctl domains list --app ${{ steps.app-name.outputs.app_name }} --json | jq '.[] | select(.name=="${{ vars.CUSTOM_DOMAIN }}")')
-          echo "domain_info=$DOMAIN_INFO" >> $GITHUB_OUTPUT
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
