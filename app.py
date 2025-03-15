@@ -39,8 +39,8 @@ logger = logging.getLogger("poe-proxy")
 
 # 从环境变量获取API密钥（优先）或配置文件
 api_keys_str = os.getenv("POE_API_KEYS", "")
-api_keys = api_keys_str.split(",") if api_keys_str else config.get("apikey", [])
-api_keys = [key.strip() for key in api_keys if key.strip()]
+api_keys = set(api_keys_str.split(",") if api_keys_str else config.get("apikey", []))
+api_keys = {api_key.strip() for api_key in api_keys if api_key.strip()}
 
 # 从环境变量获取访问令牌（优先）或配置文件
 access_tokens_str = os.getenv("ACCESS_TOKENS", "")
