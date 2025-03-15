@@ -15,59 +15,50 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
+          python-version: '3.11'
           node-version: '18'
 
-      - name: Install Wrangler
-        run: npm install -g wrangler
-
-      - name: Login to Cloudflare
-        run: echo "${{ secrets.CF_API_TOKEN }}" | wrangler login
-
-      - name: Generate dynamic wrangler.toml
+      - name: Install dependencies
         run: |
-          if [ -n "${{ secrets.CF_DOMAIN }}" ] && [ -n "${{ secrets.CF_ZONE_NAME }}" ]; then
-            # 创建包含自定义域名的产品环境配置
-            cat > wrangler.toml <<EOF
-          name = "poe-proxy"
-          compatibility_date = "2023-11-01"
-          compatibility_flags = ["nodejs_compat"]
-          workers_dev = true
-          main = "src/worker.js"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          npm install -g wrangler
 
-          [build]
-          command = "docker build -t poe-proxy ."
+      - name: Generate proper wrangler.toml
+        run: |
+          cat > wrangler.toml <<EOF
+          name = "poe-proxy"
+          main = "./app.py"
+          compatibility_date = "2023-11-01"
+          compatibility_flags = ["python"]
+          workers_dev = true
 
           [vars]
-          WORKERS_RS_VERSION = "0.0.11"
-
-          [[services]]
-          binding = "POE_SERVICE"
-          type = "table"
-          format = "postgres"
-
-          [[services.ports]]
-          port = 8080
-          external = true
-
+          PORT = "8080"
+          
+          # 如果提供了域名配置，则添加自定义路由
+          EOF
+          
+          if [ -n "${{ secrets.CF_DOMAIN }}" ] && [ -n "${{ secrets.CF_ZONE_NAME }}" ]; then
+            cat >> wrangler.toml <<EOF
+          
           [env.production]
           routes = [
             { pattern = "${{ secrets.CF_DOMAIN }}/*", zone_name = "${{ secrets.CF_ZONE_NAME }}" }
           ]
-
-          [triggers]
-          crons = ["*/5 * * * *"]
           EOF
-            echo "生成包含自定义域名的wrangler.toml"
-          else
-            echo "没有提供域名配置，使用默认的workers.dev域名"
+            echo "已添加自定义域名配置"
           fi
+          
+          echo "生成的wrangler.toml文件内容:"
           cat wrangler.toml
 
       - name: Deploy to Cloudflare Workers
         env:
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          POE_APIKEYS: ${{ secrets.POE_APIKEYS }}
-          API_ACCESS_TOKENS: ${{ secrets.API_ACCESS_TOKENS }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_APIKEYS: ${{ secrets.CF_APIKEYS }}
+          CF_ACCESS_TOKENS: ${{ secrets.CF_ACCESS_TOKENS }}
         run: |
-          wrangler deploy --env production
+          # 部署工作器
+          wrangler deploy
