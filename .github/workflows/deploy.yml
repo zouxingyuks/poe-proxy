@@ -22,10 +22,8 @@ jobs:
           # 获取 GitHub 用户名并转小写
           GITHUB_USERNAME=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           # 使用截断的用户名（最大16字符）生成应用名称
-          # 因为 Fly.io 应用名最大长度有限制
           SHORT_USERNAME=$(echo $GITHUB_USERNAME | cut -c1-16)
           APP_NAME="poe-proxy-${SHORT_USERNAME}"
-          # 输出应用名称
           echo "App name: $APP_NAME"
           echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
 
@@ -54,12 +52,15 @@ jobs:
           cat fly.toml
 
       - name: Check if app exists or create it
+        id: check-app
         run: |
           if flyctl apps list | grep -q ${{ steps.app-name.outputs.app_name }}; then
             echo "App ${{ steps.app-name.outputs.app_name }} already exists"
+            echo "app_exists=true" >> $GITHUB_OUTPUT
           else
             echo "Creating new app ${{ steps.app-name.outputs.app_name }}"
             flyctl apps create ${{ steps.app-name.outputs.app_name }}
+            echo "app_exists=false" >> $GITHUB_OUTPUT
           fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -83,11 +84,52 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-      - name: Display app URL
+      - name: Configure custom domain (if provided)
+        if: ${{ vars.CUSTOM_DOMAIN != '' }}
+        id: custom-domain
+        run: |
+          echo "Setting up custom domain: ${{ vars.CUSTOM_DOMAIN }}"
+          
+          # 检查域名是否已添加
+          if flyctl domains list --app ${{ steps.app-name.outputs.app_name }} | grep -q "${{ vars.CUSTOM_DOMAIN }}"; then
+            echo "Domain already registered, checking certificate status..."
+          else
+            # 添加自定义域名
+            flyctl domains add ${{ vars.CUSTOM_DOMAIN }} --app ${{ steps.app-name.outputs.app_name }}
+          fi
+          
+          # 存储域名信息
+          echo "custom_domain=${{ vars.CUSTOM_DOMAIN }}" >> $GITHUB_OUTPUT
+          
+          # 获取域名验证信息
+          DOMAIN_INFO=$(flyctl domains list --app ${{ steps.app-name.outputs.app_name }} --json | jq '.[] | select(.name=="${{ vars.CUSTOM_DOMAIN }}")')
+          echo "domain_info=$DOMAIN_INFO" >> $GITHUB_OUTPUT
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Display app information
         run: |
           echo "================================================="
           echo "✅ 部署成功！"
           echo "🌐 应用 URL: https://${{ steps.app-name.outputs.app_name }}.fly.dev"
+          
+          if [ -n "${{ steps.custom-domain.outputs.custom_domain }}" ]; then
+            echo ""
+            echo "🔒 自定义域名设置"
+            echo "域名: ${{ steps.custom-domain.outputs.custom_domain }}"
+            echo ""
+            echo "📝 DNS 配置说明:"
+            echo "1. 登录 Fly.io 控制台: https://fly.io/dashboard"
+            echo "2. 选择应用: ${{ steps.app-name.outputs.app_name }}"
+            echo "3. 进入 'Certificates' 标签查看域名状态"
+            echo "4. 按照界面上的指示添加必要的 DNS 记录"
+            echo ""
+            echo "通常，您需要添加一条 CNAME 记录指向:"
+            echo "${{ steps.app-name.outputs.app_name }}.fly.dev"
+          fi
           echo "================================================="
+          
+          echo "一旦 DNS 配置生效（这可能需要几分钟到几小时），您就可以通过以下地址访问您的服务:"
+          echo "https://${{ steps.custom-domain.outputs.custom_domain }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
