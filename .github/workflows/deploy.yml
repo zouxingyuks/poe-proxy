@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Workers
+name: Deploy to Fly.io
 
 on:
   push:
@@ -7,27 +7,23 @@ on:
 
 jobs:
   deploy:
+    name: Deploy to Fly.io
     runs-on: ubuntu-latest
-    name: Deploy
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+      - name: Set up Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Install Wrangler
-        run: npm install -g wrangler
-
-      - name: Login to Cloudflare
-        run: echo "${{ secrets.CF_API_TOKEN }}" | wrangler login
-
-      - name: Deploy to Cloudflare Workers
-        env:
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CF_APIKEYS: ${{ secrets.CF_APIKEYS }}
-          CF_ACCESS_TOKENS: ${{ secrets.CF_ACCESS_TOKENS }}
+      - name: Configure Fly.io Secrets
         run: |
-          wrangler deploy --env production
+          flyctl secrets set POE_API_KEYS="${{ secrets.POE_API_KEYS }}" --app poe-proxy
+          flyctl secrets set ACCESS_TOKENS="${{ secrets.ACCESS_TOKENS }}" --app poe-proxy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
