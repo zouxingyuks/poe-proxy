@@ -3,3 +3,5 @@ uvicorn>=0.23.0
 pydantic>=2.0.0
 httpx>=0.24.0
 python-dotenv>=1.0.0
+toml>=0.10.2
+fastapi_poe>=0.0.49
