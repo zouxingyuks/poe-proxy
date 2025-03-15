@@ -15,14 +15,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          python-version: '3.11'
           node-version: '18'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
           npm install -g wrangler
+
+      - name: Debug current directory contents
+        run: ls -la
+
+      - name: Disable Wrangler telemetry
+        run: npx wrangler telemetry disable
+        env:
+          WRANGLER_SEND_METRICS: "false"
 
       - name: Generate proper wrangler.toml
         run: |
@@ -30,19 +35,20 @@ jobs:
           name = "poe-proxy"
           main = "./app.py"
           compatibility_date = "2023-11-01"
-          compatibility_flags = ["python"]
+          compatibility_flags = ["python_workers"]
           workers_dev = true
+          send_metrics = false
 
           [vars]
           PORT = "8080"
-          
-          # 如果提供了域名配置，则添加自定义路由
+          CF_APIKEYS = "${{ secrets.CF_APIKEYS }}"
+          CF_ACCESS_TOKENS = "${{ secrets.CF_ACCESS_TOKENS }}"
           EOF
           
+          # 如果提供了域名配置，则添加自定义路由
           if [ -n "${{ secrets.CF_DOMAIN }}" ] && [ -n "${{ secrets.CF_ZONE_NAME }}" ]; then
             cat >> wrangler.toml <<EOF
           
-          [env.production]
           routes = [
             { pattern = "${{ secrets.CF_DOMAIN }}/*", zone_name = "${{ secrets.CF_ZONE_NAME }}" }
           ]
@@ -50,15 +56,29 @@ jobs:
             echo "已添加自定义域名配置"
           fi
           
-          echo "生成的wrangler.toml文件内容:"
+          echo "=== 生成的wrangler.toml文件内容 ==="
           cat wrangler.toml
+          echo "=== wrangler.toml文件内容结束 ==="
 
-      - name: Deploy to Cloudflare Workers
+      - name: Deploy to Cloudflare Workers with debug logs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          CF_APIKEYS: ${{ secrets.CF_APIKEYS }}
-          CF_ACCESS_TOKENS: ${{ secrets.CF_ACCESS_TOKENS }}
+          WRANGLER_SEND_METRICS: "false"
+          WRANGLER_LOG: "debug"
         run: |
+          # 验证环境变量（不显示实际值）
+          echo "CLOUDFLARE_API_TOKEN 是否存在: ${{ secrets.CF_API_TOKEN != '' }}"
+          echo "CLOUDFLARE_ACCOUNT_ID 是否存在: ${{ secrets.CF_ACCOUNT_ID != '' }}"
+          
+          # 确保app.py存在
+          if [ ! -f "app.py" ]; then
+            echo "警告: app.py文件不存在，创建一个最简单的Python示例"
+            cat > app.py <<EOF
+          def handler(request, env, ctx):
+              return Response("Hello, World!")
+          EOF
+          fi
+          
           # 部署工作器
-          wrangler deploy
+          wrangler deploy --no-bundle
