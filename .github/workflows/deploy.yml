@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Workers
+name: Deploy to Fly.io
 
 on:
   push:
@@ -7,67 +7,16 @@ on:
 
 jobs:
   deploy:
+    name: Deploy to Fly.io
     runs-on: ubuntu-latest
-    name: Deploy
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Remove or fix requirements.txt
-        run: |
-          # 如果requirements.txt存在，先备份
-          if [ -f "requirements.txt" ]; then
-            cp requirements.txt requirements.txt.bak
-            
-            # 创建Cloudflare兼容的requirements.txt（只保留包名，去除版本）
-            grep -v '^#' requirements.txt | sed 's/[=~<>].*//' > requirements.txt.clean
-            mv requirements.txt.clean requirements.txt
-            
-            echo "=== 修改后的requirements.txt内容 ==="
-            cat requirements.txt
-            echo "=== requirements.txt内容结束 ==="
-          fi
+      - name: Set up Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Generate proper wrangler.toml
-        run: |
-          cat > wrangler.toml <<EOF
-          name = "poe-proxy"
-          main = "./app.py"
-          compatibility_date = "2023-11-01"
-          compatibility_flags = ["python_workers"]
-          workers_dev = true
-
-          [vars]
-          PORT = "8080"
-          CF_APIKEYS = "${{ secrets.CF_APIKEYS }}"
-          CF_ACCESS_TOKENS = "${{ secrets.CF_ACCESS_TOKENS }}"
-          EOF
-          
-          # 如果提供了域名配置，则添加自定义路由
-          if [ -n "${{ secrets.CF_DOMAIN }}" ] && [ -n "${{ secrets.CF_ZONE_NAME }}" ]; then
-            cat >> wrangler.toml <<EOF
-          
-          routes = [
-            { pattern = "${{ secrets.CF_DOMAIN }}/*", zone_name = "${{ secrets.CF_ZONE_NAME }}" }
-          ]
-          EOF
-            echo "已添加自定义域名配置"
-          fi
-          
-          echo "=== 生成的wrangler.toml文件内容 ==="
-          cat wrangler.toml
-          echo "=== wrangler.toml文件内容结束 ==="
-
-      - name: Temporarily rename requirements.txt for deployment
-        run: |
-          # 由于Cloudflare警告，暂时将requirements.txt重命名以绕过限制
-          if [ -f "requirements.txt" ]; then
-            mv requirements.txt requirements.txt.disabled
-            echo "已暂时禁用requirements.txt以允许部署"
-          fi
-
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: deploy --no-bundle
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
